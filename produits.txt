@@ -1,5 +1,5 @@
 id	nom	mode	formats	saveurs	max_total	disponible
-biscuits	Biscuits	format	3 biscuits=5; 6 biscuits=10	Avoine et chocolat; Pépites de chocolat; Chocolate coffee toffee; Salted pistachio chocolate chunks		oui
+biscuits	Biscuits	melange	3 biscuits=5; 6 biscuits=10	Avoine et chocolat; Pépites de chocolat; Chocolate coffee toffee; Salted pistachio chocolate chunks		oui
 scones	Scones	format	4 scones=8; 6 scones=10	Érable et pacanes		oui
 brownies	Brownies	format	4 brownies=10	Chocolat		oui
 brioche	Brioche	format	4 brioches=10	À la cannelle		oui

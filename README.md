@@ -20,7 +20,7 @@ Browser (GitHub Pages) --GET menu / POST order--> Apps Script web app --> Google
 |---|---|
 | `id` | short unique code, no spaces |
 | `nom` | name shown on the site |
-| `mode` | `format`: pick one format + one flavor. One format shows as a checkbox, several as radio buttons.<br>`quantite`: pick a quantity per flavor, up to `max_total` combined |
+| `mode` | `format`: pick one format + one flavor. One format shows as a checkbox, several as radio buttons.<br>`melange`: pick one format, then mix flavors to fill it exactly. The box size is the number at the start of the format (`6 biscuits=10` is 6).<br>`quantite`: pick a quantity per flavor, up to `max_total` combined |
 | `formats` | `label=price` separated by `;`, e.g. `3 biscuits=5; 6 biscuits=10`. For `quantite`, the unit price, e.g. `1 pain=5` |
 | `saveurs` | flavors separated by `;`. Remove one to stop offering it |
 | `max_total` | `quantite` only: max combined quantity |

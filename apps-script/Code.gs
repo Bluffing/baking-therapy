@@ -10,6 +10,8 @@
  *                    A single format shows as a checkbox.
  *   mode "quantite": customer picks a quantity per saveur, priced with the first format,
  *                    max_total loaves/items combined.
+ *   mode "melange":  customer picks one format, then mixes saveurs to fill it exactly. The box size is
+ *                    the number at the start of the format label ("6 biscuits=10" -> 6).
  *
  * Endpoints (after Deploy > New deployment > Web app):
  *   GET  -> { products: [...], pickupDates: ['yyyy-MM-dd', ...] }
@@ -112,24 +114,47 @@ function readProducts_() {
     .map(r => ({
       id: String(r[0]).trim(),
       name: String(r[1]).trim(),
-      mode: /^quantit/i.test(String(r[2]).trim()) ? 'quantite' : 'format',
+      mode: parseMode_(r[2]),
       formats: parseFormats_(r[3]),
       flavors: splitList_(r[4]),
       maxTotal: Math.floor(Number(r[5])) || DEFAULT_MAX_QTY,
     }))
+    .map(p => (p.mode === 'melange' ? Object.assign(p, { formats: p.formats.filter(f => f.size > 0) }) : p))
     .filter(p => p.formats.length);
 }
 
-/** "3 biscuits=5; 6 biscuits=10" -> [{ label: '3 biscuits', price: 5 }, ...] */
+function parseMode_(v) {
+  const mode = String(v).trim().toLowerCase();
+  if (/^quantit/.test(mode)) return 'quantite';
+  if (/^m[eé]lange/.test(mode)) return 'melange';
+  return 'format';
+}
+
+/** "3 biscuits=5; 6 biscuits=10" -> [{ label: '3 biscuits', price: 5, size: 3 }, ...] */
 function parseFormats_(text) {
   return splitList_(text)
     .map(s => {
       const i = s.lastIndexOf('=');
       if (i < 0) return null;
+      const label = s.slice(0, i).trim();
       const price = Number(s.slice(i + 1).replace(',', '.').replace('$', '').trim());
-      return { label: s.slice(0, i).trim(), price };
+      return { label, price, size: parseInt(label, 10) || 0 };
     })
     .filter(f => f && f.label && f.price >= 0);
+}
+
+/** Valid per-flavor quantities -> { count, text: "2 Blanc, 1 Brun" } */
+function countFlavors_(product, quantities) {
+  const parts = [];
+  let count = 0;
+  product.flavors.forEach(flavor => {
+    const qty = Math.floor(Number((quantities || {})[flavor]) || 0);
+    if (qty > 0) {
+      count += qty;
+      parts.push(qty + ' ' + flavor);
+    }
+  });
+  return { count, text: parts.join(', ') };
 }
 
 function splitList_(text) {
@@ -160,26 +185,28 @@ function validate_(body) {
     seen[product.id] = true;
 
     if (product.mode === 'quantite') {
-      const quantities = item.quantities || {};
-      const parts = [];
-      let count = 0;
-      product.flavors.forEach(flavor => {
-        const qty = Math.floor(Number(quantities[flavor]) || 0);
-        if (qty > 0) {
-          count += qty;
-          parts.push(qty + ' ' + flavor);
-        }
-      });
+      const { count, text } = countFlavors_(product, item.quantities);
       if (!count) return;
       if (count > product.maxTotal) throw new Error('Maximum ' + product.maxTotal + ' au total pour ' + product.name + '.');
       const price = count * product.formats[0].price;
-      lines.push(product.name + ' : ' + parts.join(', ') + ' (' + money_(price) + ')');
+      lines.push(product.name + ' : ' + text + ' (' + money_(price) + ')');
       total += price;
       return;
     }
 
     const format = product.formats.find(f => f.label === item.format);
     if (!format) return;
+
+    if (product.mode === 'melange') {
+      const { count, text } = countFlavors_(product, item.quantities);
+      if (count !== format.size) {
+        throw new Error('Choisissez exactement ' + format.size + ' saveurs pour ' + product.name + ' (' + count + ' choisies).');
+      }
+      lines.push(product.name + ' : ' + format.label + ' - ' + text + ' (' + money_(format.price) + ')');
+      total += format.price;
+      return;
+    }
+
     let flavor = '';
     if (product.flavors.length === 1) flavor = product.flavors[0];
     if (product.flavors.length > 1) {

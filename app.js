@@ -54,23 +54,27 @@ function renderMenu() {
     menuEl.replaceChildren(el('p', { className: 'muted', textContent: 'Aucun produit disponible pour le moment.' }));
     return;
   }
-  menuEl.replaceChildren(...products.map((p, i) => (p.mode === 'quantite' ? quantityCard(p, i) : formatCard(p, i))));
+  const cards = { quantite: quantityCard, melange: mixCard, format: formatCard };
+  menuEl.replaceChildren(...products.map((p, i) => cards[p.mode](p, i)));
   update();
 }
 
-// One format (checkbox) or several (radios with "Aucun"), plus a flavor radio group when there's more than one flavor.
+// One format (checkbox) or several (radios with "Aucun").
+function formatChoices(p, i) {
+  if (p.formats.length === 1) {
+    const f = p.formats[0];
+    return choice('checkbox', `f-${i}`, f.label, `${f.label} - ${money(f.price)}`);
+  }
+  return el('div', { className: 'choices' },
+    choice('radio', `f-${i}`, '', 'Aucun', true),
+    ...p.formats.map(f => choice('radio', `f-${i}`, f.label, `${f.label} - ${money(f.price)}`)));
+}
+
+// Formats plus a flavor radio group when there's more than one flavor.
 function formatCard(p, i) {
   const card = el('div', { className: 'product' }, el('h3', { textContent: p.name }));
   if (p.flavors.length === 1) card.append(el('p', { className: 'muted', textContent: p.flavors[0] }));
-
-  if (p.formats.length === 1) {
-    const f = p.formats[0];
-    card.append(choice('checkbox', `f-${i}`, f.label, `${f.label} - ${money(f.price)}`));
-  } else {
-    card.append(el('div', { className: 'choices' },
-      choice('radio', `f-${i}`, '', 'Aucun', true),
-      ...p.formats.map(f => choice('radio', `f-${i}`, f.label, `${f.label} - ${money(f.price)}`))));
-  }
+  card.append(formatChoices(p, i));
 
   if (p.flavors.length > 1) {
     card.append(el('fieldset', { className: 'flavors', id: `s-${i}` },
@@ -79,6 +83,39 @@ function formatCard(p, i) {
   }
   return card;
 }
+
+// Pick a box, then fill it with any mix of flavors using - / + steppers.
+const mixCounts = {};
+const mixSizes = {};
+function mixCard(p, i) {
+  mixCounts[i] = p.flavors.map(() => 0);
+  mixSizes[i] = 0;
+  const step = (j, d, text) => el('button', { type: 'button', className: 'step', textContent: text, ariaLabel: `${d > 0 ? 'Ajouter' : 'Retirer'} ${p.flavors[j]}` });
+  return el('div', { className: 'product' },
+    el('h3', { textContent: p.name }),
+    formatChoices(p, i),
+    el('fieldset', { className: 'mix', id: `s-${i}` },
+      el('legend', { id: `l-${i}` }),
+      ...p.flavors.map((s, j) => {
+        const minus = step(j, -1, '−');
+        const plus = step(j, 1, '+');
+        minus.dataset.mix = `${i}:${j}:-1`;
+        plus.dataset.mix = `${i}:${j}:1`;
+        return el('div', { className: 'mix-row' },
+          el('span', { textContent: s }),
+          el('span', { className: 'stepper' }, minus, el('output', { id: `c-${i}-${j}`, textContent: '0' }), plus));
+      })));
+}
+
+const mixSum = i => mixCounts[i].reduce((a, b) => a + b, 0);
+
+menuEl.addEventListener('click', e => {
+  const button = e.target.closest('button[data-mix]');
+  if (!button) return;
+  const [i, j, d] = button.dataset.mix.split(':').map(Number);
+  mixCounts[i][j] = Math.max(0, mixCounts[i][j] + d);
+  update();
+});
 
 // A quantity per flavor (0 to max), with a combined maximum.
 function quantityCard(p, i) {
@@ -115,7 +152,13 @@ function readOrder() {
     }
     const format = p.formats.find(f => f.label === checkedValue(`f-${i}`));
     if (!format) return;
-    items.push({ id: p.id, format: format.label, flavor: p.flavors.length > 1 ? checkedValue(`s-${i}`) : p.flavors[0] });
+    if (p.mode === 'melange') {
+      const quantities = {};
+      p.flavors.forEach((s, j) => mixCounts[i][j] && (quantities[s] = mixCounts[i][j]));
+      items.push({ id: p.id, format: format.label, quantities });
+    } else {
+      items.push({ id: p.id, format: format.label, flavor: p.flavors.length > 1 ? checkedValue(`s-${i}`) : p.flavors[0] });
+    }
     total += format.price;
   });
   return { items, total };
@@ -131,6 +174,21 @@ function update() {
         form.querySelectorAll(`input[name="q-${i}-${j}"]`).forEach(input => {
           input.disabled = Number(input.value) > p.maxTotal - (sum - chosen[j]);
         });
+      });
+    } else if (p.mode === 'melange') {
+      const size = p.formats.find(f => f.label === checkedValue(`f-${i}`))?.size || 0;
+      // A different box size starts the mix over.
+      if (size !== mixSizes[i]) {
+        mixSizes[i] = size;
+        mixCounts[i].fill(0);
+      }
+      const sum = mixSum(i);
+      document.getElementById(`s-${i}`).hidden = !size;
+      document.getElementById(`l-${i}`).textContent = `Choisissez vos ${size} saveurs (${sum}/${size})`;
+      p.flavors.forEach((s, j) => {
+        document.getElementById(`c-${i}-${j}`).textContent = mixCounts[i][j];
+        menuEl.querySelector(`[data-mix="${i}:${j}:-1"]`).disabled = mixCounts[i][j] === 0;
+        menuEl.querySelector(`[data-mix="${i}:${j}:1"]`).disabled = sum >= size;
       });
     } else if (p.flavors.length > 1) {
       // Flavors only matter once a format is chosen.
@@ -154,9 +212,14 @@ form.addEventListener('submit', async e => {
   const { items } = readOrder();
   const name = form.elements.name.value.trim();
   const pickupDate = checkedValue('pickupDate');
-  const missingFlavor = products.find((p, i) => p.mode !== 'quantite' && p.flavors.length > 1 && checkedValue(`f-${i}`) && !checkedValue(`s-${i}`));
+  const missingFlavor = products.find((p, i) => p.mode === 'format' && p.flavors.length > 1 && checkedValue(`f-${i}`) && !checkedValue(`s-${i}`));
+  const incompleteMix = products.findIndex((p, i) => p.mode === 'melange' && mixSizes[i] && mixSum(i) !== mixSizes[i]);
 
   if (missingFlavor) return void (messageEl.textContent = `Choisissez une saveur pour ${missingFlavor.name}.`);
+  if (incompleteMix >= 0) {
+    const i = incompleteMix;
+    return void (messageEl.textContent = `Choisissez encore ${mixSizes[i] - mixSum(i)} saveur(s) pour ${products[i].name}.`);
+  }
   if (!name) return void (messageEl.textContent = 'Votre nom est requis.');
   if (!pickupDate) return void (messageEl.textContent = 'Choisissez une date de cueillette.');
 
