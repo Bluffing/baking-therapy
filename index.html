@@ -1,46 +1,50 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Baking Therapy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>
     <h1>Baking Therapy</h1>
-    <p>Order online, pick up fresh.</p>
+    <p>Commandez en ligne, cueillez frais.</p>
   </header>
 
   <main>
     <form id="order-form" novalidate>
       <section>
         <h2>Menu</h2>
-        <div id="menu"><p class="muted">Loading menu...</p></div>
+        <div id="menu"><p class="muted">Chargement du menu...</p></div>
       </section>
 
       <section>
-        <h2>Your details</h2>
-        <label>Name <input name="name" required maxlength="100" autocomplete="name"></label>
-        <label>Email <input name="email" type="email" required maxlength="200" autocomplete="email"></label>
-        <label>Phone <input name="phone" type="tel" maxlength="30" autocomplete="tel"></label>
-        <label>Pickup date <input name="pickupDate" type="date" required></label>
-        <label>Notes <textarea name="notes" rows="3" maxlength="1000" placeholder="Allergies, special requests..."></textarea></label>
+        <h2>Vos informations</h2>
+        <label class="field">Nom <input name="name" required maxlength="100" autocomplete="name"></label>
+        <fieldset>
+          <legend>Date de cueillette</legend>
+          <div id="pickup"><p class="muted">Chargement...</p></div>
+        </fieldset>
         <!-- Honeypot for bots: hidden from people -->
-        <label class="hp" aria-hidden="true">Website <input name="website" tabindex="-1" autocomplete="off"></label>
+        <label class="hp" aria-hidden="true">Site web <input name="website" tabindex="-1" autocomplete="off"></label>
       </section>
 
       <div class="summary">
-        <span>Total: <strong id="total">$0.00</strong></span>
-        <button type="submit" id="submit" disabled>Place order</button>
+        <span>Total : <strong id="total">0,00 $</strong></span>
+        <button type="submit" id="submit" disabled>Commander</button>
       </div>
       <p id="message" role="status"></p>
     </form>
 
     <div id="done" hidden>
-      <h2>Thank you!</h2>
-      <p>Your order <strong id="order-id"></strong> was received. We'll see you on pickup day.</p>
-      <p class="muted">Payment is made at pickup.</p>
+      <h2>Merci!</h2>
+      <p>Votre commande <strong id="order-id"></strong> a bien été reçue.</p>
+      <p>Cueillette : <strong id="done-pickup"></strong></p>
+      <p class="muted">Paiement à la cueillette.</p>
     </div>
   </main>
 
