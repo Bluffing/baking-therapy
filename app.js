@@ -125,7 +125,7 @@ function quantityCard(p, i) {
     el('p', { className: 'muted', textContent: `${money(unit.price)} chacun, maximum ${p.maxTotal} au total` }));
   p.flavors.forEach((s, j) => {
     const options = [];
-    for (let q = 0; q <= p.maxTotal; q++) options.push(choice('radio', `q-${i}-${j}`, String(q), q === 0 ? 'Aucun' : String(q), q === 0));
+    for (let q = 0; q <= p.maxTotal; q++) options.push(choice('radio', `q-${i}-${j}`, String(q), String(q), q === 0));
     card.append(el('div', { className: 'qty-row' }, el('span', { className: 'qty-label', textContent: s }), el('div', { className: 'choices' }, ...options)));
   });
   return card;
